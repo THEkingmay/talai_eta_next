@@ -5,7 +5,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 export async function POST(req: NextRequest) {
-  // 1. ถ้ามี token อยู่แล้ว
+  try{
+    // 1. ถ้ามี token อยู่แล้ว
   const existToken = (await cookies()).get("token");
   if (existToken) {
     return NextResponse.json({ message: "คุณล็อกอินไปแล้ว" }, { status: 400 });
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   // 2. อ่าน body
   const { email, password } = await req.json();
-
+  console.log(email, password);
   // 3. เช็ค user จาก Supabase
   const { data: users, error } = await supabase
     .from("users")
@@ -55,4 +56,7 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ message: "เข้าสู่ระบบสำเร็จ", user: { id: user.id, email: user.email } });
+  }catch(err){
+    return NextResponse.json({ message: "เกิดข้อผิดพลาด", err }, { status: 500 });
+  }
 }
