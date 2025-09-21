@@ -5,8 +5,13 @@ import Button from "@/ui_component/button";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { useMap } from 'react-leaflet';
-import { Icon } from 'leaflet';
+import { useMap } from "react-leaflet";
+
+// Dynamic imports for React-Leaflet (ต้องปิด SSR)
+const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
+const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
 
 interface User {
   id: string;
@@ -14,17 +19,12 @@ interface User {
   role: string;
 }
 
-// // Dynamic imports for React-Leaflet (ต้องปิด SSR)
-const Map = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false });
-
+// Component: MapUpdater
 function MapUpdater({ location }: { location: [number, number] }) {
-  const map = useMap();
 
+  const map = useMap();
   useEffect(() => {
-    if (location) {
+    if (location && map) {
       map.flyTo(location, map.getZoom());
     }
   }, [location, map]);
@@ -32,67 +32,73 @@ function MapUpdater({ location }: { location: [number, number] }) {
   return null;
 }
 
+// Component: RealtimeLocation
 function RealtimeLocation() {
-  const customIcon = new Icon({
-    iconUrl: '/icon.png', // ใส่ path ของไอคอนที่ต้องการ
-    iconSize: [25, 41], // ขนาดของไอคอน
-    iconAnchor: [12, 41], // จุดที่ไอคอนชี้ไปยังตำแหน่งจริง
-    popupAnchor: [0, -41] // จุดที่ป๊อปอัพจะปรากฏเมื่อคลิกไอคอน
-  });
+  const [customIcon, setCustomIcon] = useState<L.Icon | null>(null);
   const [location, setLocation] = useState<[number, number] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // โหลด icon จาก leaflet (client only)
   useEffect(() => {
-    if (!navigator.geolocation) {
+    import("leaflet").then(L => {
+      setCustomIcon(
+        new L.Icon({
+          iconUrl: "/icon.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [0, -41],
+        })
+      );
+    });
+  }, []);
+
+  // ใช้ geolocation
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
       setError("Geolocation is not supported by your browser.");
       return;
     }
-    const getLocationEvery5sec = async () =>{
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          const newLocation = [latitude, longitude] as [number, number];
-          setLocation(newLocation);
-          // ส่งตำแหน่งไป API ถ้ามี endpoint รองรับ
-          try {
-            await fetch("/api/location", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ latitude, longitude }),
-            });
-          } catch (err) {
-            console.error("Failed to send location to API:", err);
-          } 
+
+    const getLocationEvery5sec = async () => {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        const newLocation = [latitude, longitude] as [number, number];
+        setLocation(newLocation);
+
+        try {
+          await fetch("/api/location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ latitude, longitude }),
+          });
+        } catch (err) {
+          console.error("Failed to send location to API:", err);
         }
-      );
-    }
+      });
+    };
+
     const intervalId = setInterval(getLocationEvery5sec, 5000);
     getLocationEvery5sec(); // เรียกครั้งแรกทันที
     return () => clearInterval(intervalId);
   }, []);
 
-  if (error) {
-    return <p className="text-red-500">Error: {error}</p>;
-  }
-
-  if (!location) {
-    return <p>Loading location...</p>;
-  }
+  if (error) return <p className="text-red-500">Error: {error}</p>;
+  if (!location) return <p>Loading location...</p>;
 
   return (
-    <Map style={{height:'85vh' , width: "100%" }} center={location} zoom={13} scrollWheelZoom={true}>
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <Marker position={location} icon={customIcon}>
-        <Popup>คุณอยู่ตรงนี้</Popup>
-    </Marker>
+    <MapContainer style={{ height: "85vh", width: "100%" }} center={location} zoom={13} scrollWheelZoom={true}>
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      {customIcon && (
+        <Marker position={location} icon={customIcon}>
+          <Popup>คุณอยู่ตรงนี้</Popup>
+        </Marker>
+      )}
       <MapUpdater location={location} />
-    </Map>
-    
+    </MapContainer>
   );
 }
 
+// Main Page
 export default function Page() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -149,6 +155,7 @@ export default function Page() {
       </div>
     );
   }
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -158,21 +165,19 @@ export default function Page() {
   }
 
   return (
-    <div className="min-h-scree">
-      <div className="flex items-center justify-between p-4 border-b border-gray-300 " 
-      style={{height:'15vh'}}>
+    <div className="min-h-screen">
+      <div className="flex items-center justify-between p-4 border-b border-gray-300" style={{ height: "15vh" }}>
         <div>
           <h1 className="text-4xl font-bold text-gray-800">TALAI ETA</h1>
           <p className="text-lg text-gray-700">
             Logged in as: <span className="font-mono">{user?.email}</span>
           </p>
         </div>
-        {/* hamburgur bar if small device */}
         <div className="flex items-center">
           <Button
-          label='location history '
-          className='bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mr-4'
-            onClick={() => router.push('/location-history')}
+            label="location history"
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mr-4"
+            onClick={() => router.push("/location-history")}
           />
           <Button
             onClick={handleLogout}
@@ -181,7 +186,7 @@ export default function Page() {
           />
         </div>
       </div>
-      <div className='flex justify-center border-t border-gray-300 '>
+      <div className="flex justify-center border-t border-gray-300">
         <RealtimeLocation />
       </div>
     </div>

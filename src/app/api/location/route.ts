@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import {  NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { supabase } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
+import { JwtPayload } from 'jsonwebtoken';
 
 export async function GET() {
     try{
@@ -9,7 +10,7 @@ export async function GET() {
         if (!token) {
             return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 });
         }
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
         const userId = decoded.id;
         if (!userId) {
             return new Response(JSON.stringify({ message: 'Invalid token' }), { status: 401 });
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
         if (!token) {
             return new Response(JSON.stringify({ message: 'Unauthorized' }), { status: 401 });
         }
-        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!);
+        const decoded  = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
         const userId = decoded.id;
         if (!userId) {
             return new Response(JSON.stringify({ message: 'Invalid token' }), { status: 401 });
