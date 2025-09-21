@@ -24,11 +24,11 @@ const ErrorToast: React.FC<{ message: string; onClose?: () => void }> = ({ messa
 
     return (
         <div
-            className={`fixed top-6 right-6 z-50 transition-all duration-300 ${
+            className={`fixed top-6 right-6 z-50 transition-all duration-300 w-1/2 ${
                 visible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-4 pointer-events-none"
             }`}
         >
-            <div className="flex items-center gap-3 px-5 py-3 bg-red-500 text-white rounded-lg shadow-lg shadow-red-200/40 border border-red-400">
+            <div className="flex items-center gap-3 px-5 py-3 bg-red-400 text-white rounded-lg shadow-lg shadow-red-200/40 border border-red-400">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>

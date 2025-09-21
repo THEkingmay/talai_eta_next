@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
 
   // 2. อ่าน body
   const { email, password } = await req.json();
-  console.log(email, password);
   // 3. เช็ค user จาก Supabase
   const { data: users, error } = await supabase
     .from("users")
@@ -32,19 +31,18 @@ export async function POST(req: NextRequest) {
   const user = users[0];
 
   // 4. ตรวจสอบรหัสผ่าน (ใช้ bcrypt เท่านั้น)
-  const isMatch = await bcrypt.compare(password, user.passwordHash);
+  const isMatch = await bcrypt.compare(password, user.hash_password);
   if (!isMatch) {
     return NextResponse.json({ message: "รหัสผ่านไม่ถูกต้อง" }, { status: 401 });
   }
 
   // 5. สร้าง JWT token
   const token = jwt.sign(
-    { id: user.id, email: user.email }, // อย่าใส่ user ทั้ง object
+    { id: user.id }, // อย่าใส่ user ทั้ง object
     process.env.JWT_SECRET!,
     { expiresIn: "2h" }
   );
 
-  // 6. เก็บ token ใน cookie
   (await
         // 6. เก็บ token ใน cookie
         cookies()).set("token", token, {

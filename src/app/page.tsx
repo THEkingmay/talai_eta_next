@@ -1,18 +1,189 @@
+'use client';
 
-import Link from 'next/link';
+import 'leaflet/dist/leaflet.css';
+import Button from "@/ui_component/button";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import { useMap } from 'react-leaflet';
+import { Icon } from 'leaflet';
 
-export default function Home(): React.JSX.Element {
+interface User {
+  id: string;
+  email: string;
+  role: string;
+}
+
+// // Dynamic imports for React-Leaflet (ต้องปิด SSR)
+const Map = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
+const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
+const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false });
+const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false });
+
+function MapUpdater({ location }: { location: [number, number] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (location) {
+      map.flyTo(location, map.getZoom());
+    }
+  }, [location, map]);
+
+  return null;
+}
+
+function RealtimeLocation() {
+  const customIcon = new Icon({
+    iconUrl: '/icon.png', // ใส่ path ของไอคอนที่ต้องการ
+    iconSize: [25, 41], // ขนาดของไอคอน
+    iconAnchor: [12, 41], // จุดที่ไอคอนชี้ไปยังตำแหน่งจริง
+    popupAnchor: [0, -41] // จุดที่ป๊อปอัพจะปรากฏเมื่อคลิกไอคอน
+  });
+  const [location, setLocation] = useState<[number, number] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser.");
+      return;
+    }
+    const getLocationEvery5sec = async () =>{
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          const newLocation = [latitude, longitude] as [number, number];
+          setLocation(newLocation);
+          // ส่งตำแหน่งไป API ถ้ามี endpoint รองรับ
+          try {
+            await fetch("/api/location", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ latitude, longitude }),
+            });
+          } catch (err) {
+            console.error("Failed to send location to API:", err);
+          } 
+        }
+      );
+    }
+    const intervalId = setInterval(getLocationEvery5sec, 5000);
+    getLocationEvery5sec(); // เรียกครั้งแรกทันที
+    return () => clearInterval(intervalId);
+  }, []);
+
+  if (error) {
+    return <p className="text-red-500">Error: {error}</p>;
+  }
+
+  if (!location) {
+    return <p>Loading location...</p>;
+  }
+
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-200">
-      <div className="bg-white shadow-lg rounded-lg p-10 text-center">
-        <h1 className="text-4xl font-bold text-gray-800 mb-4">Hello World</h1>
-        <p className="text-gray-600 mb-8">Welcome to your beautifully styled Next.js page with Tailwind CSS!</p>
-        <Link href="/auth/loginAndRegister">
-          <button className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded transition-colors shadow">
-            Go to Login / Register
-          </button>
-        </Link>
+    <Map style={{height:'85vh' , width: "100%" }} center={location} zoom={13} scrollWheelZoom={true}>
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      <Marker position={location} icon={customIcon}>
+        <Popup>คุณอยู่ตรงนี้</Popup>
+    </Marker>
+      <MapUpdater location={location} />
+    </Map>
+    
+  );
+}
+
+export default function Page() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/user", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/auth/logout", { method: "GET" });
+      if (res.ok) {
+        setUser(null);
+        router.push("/auth/loginAndRegister");
+      }
+    } catch (error) {
+      setError("Failed to logout");
+      console.error("Logout error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 border-solid"></div>
+          <p className="text-gray-500 mt-4 text-lg">Loading TALAI...</p>
+        </div>
       </div>
-    </main>
+    );
+  }
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-red-500">Error: {error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-scree">
+      <div className="flex items-center justify-between p-4 border-b border-gray-300 " 
+      style={{height:'15vh'}}>
+        <div>
+          <h1 className="text-4xl font-bold text-gray-800">TALAI ETA</h1>
+          <p className="text-lg text-gray-700">
+            Logged in as: <span className="font-mono">{user?.email}</span>
+          </p>
+        </div>
+        {/* hamburgur bar if small device */}
+        <div className="flex items-center">
+          <Button
+          label='location history '
+          className='bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded mr-4'
+            onClick={() => router.push('/location-history')}
+          />
+          <Button
+            onClick={handleLogout}
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+            label="Logout"
+          />
+        </div>
+      </div>
+      <div className='flex justify-center border-t border-gray-300 '>
+        <RealtimeLocation />
+      </div>
+    </div>
   );
 }

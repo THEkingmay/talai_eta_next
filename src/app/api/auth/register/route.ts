@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import bcrypt from "bcrypt";
 import { cookies } from "next/headers";
+import jwt from "jsonwebtoken";
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,20 +35,26 @@ export async function POST(req: NextRequest) {
     // insert user
     const { data, error } = await supabase
       .from("users")
-      .insert([{ email, password: hashedPassword }])
+      .insert([{ email, hash_password: hashedPassword }])
       .select()
       .single();
 
     if (error) {
+      console.error("Supabase insert error:", error);
       return NextResponse.json(
         { message: "ไม่สามารถสมัครสมาชิกได้", error },
         { status: 500 }
       );
     }
-
+    const user = data;
+      const token = jwt.sign(
+        { id: user.id}, // อย่าใส่ user ทั้ง object
+        process.env.JWT_SECRET!,
+        { expiresIn: "2h" }
+      );
     // set cookie (token)
     const cookieStore = cookies();
-    (await cookieStore).set("token", data.id, {
+    (await cookieStore).set("token", token, {
       httpOnly: true,
       path: "/",
     });
@@ -57,6 +64,7 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (err) {
+    console.error("Registration error:", err);
     return NextResponse.json(
       { message: "เกิดข้อผิดพลาด", error: err },
       { status: 500 }
