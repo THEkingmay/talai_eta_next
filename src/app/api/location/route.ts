@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         }       
         const { data, error } = await supabase 
             .from('locations')
-            .insert([{ user_id: userId, latitude_longitude : [Number(latitude), Number(longitude)] }]);
+            .insert([{ user_id: userId , latitude : Number(latitude), longitude: Number(longitude) }]);
 
         console.log('Location saved to DB from user ', userId)
 
