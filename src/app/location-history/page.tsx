@@ -4,7 +4,8 @@ import { useState , useEffect } from "react"
 
 interface LocationEntry {
   id: string;
-  latitude_longitude: [number, number];
+  latitude: number;
+  longitude: number; 
   created_at: string;
   user_id: string;
 }
@@ -68,8 +69,8 @@ text-blue-500
                 {locations.map((loc) => (
                     <tr key={loc.id} className="hover:bg-gray-100">
                         <td className="py-2 px-4 border-b border-gray-300">{new Date(loc.created_at).toLocaleString()}</td>
-                        <td className="py-2 px-4 border-b border-gray-300">{loc.latitude_longitude[0]}</td>
-                        <td className="py-2 px-4 border-b border-gray-300">{loc.latitude_longitude[1]}</td>
+                        <td className="py-2 px-4 border-b border-gray-300">{loc.latitude}</td>
+                        <td className="py-2 px-4 border-b border-gray-300">{loc.longitude}</td>
                     </tr>
                 ))}
             </tbody>

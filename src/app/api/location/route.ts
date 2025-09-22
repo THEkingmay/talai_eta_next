@@ -17,7 +17,7 @@ export async function GET() {
         }
         const { data, error } = await supabase
             .from('locations')
-            .select('id, latitude_longitude, created_at')
+            .select('id, latitude , longitude, created_at')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(100); // ดึงข้อมูลล่าสุด 100 รายการ   
