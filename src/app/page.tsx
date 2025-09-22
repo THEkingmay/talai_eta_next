@@ -5,39 +5,36 @@ import Button from "@/ui_component/button";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { useMap } from "react-leaflet";
+import { useMap } from 'react-leaflet';
 
 // Dynamic imports for React-Leaflet (ต้องปิด SSR)
 const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
 const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
-
+const Tooltip = dynamic(() => import("react-leaflet").then(mod => mod.Tooltip), { ssr: false });
 interface User {
   id: string;
   email: string;
   role: string;
 }
 
-// Component: MapUpdater
-function MapUpdater({ location }: { location: [number, number] }) {
-
+function CenterButton({ location }: { location: [number, number] }) {
   const map = useMap();
-  useEffect(() => {
-    if (location && map) {
-      map.flyTo(location, map.getZoom());
-    }
-  }, [location, map]);
+  const centerMap = () => map.flyTo(location, 14);
 
-  return null;
+  return (
+    <Button
+      label="Center Map"
+      className="absolute top-4 right-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded z-1000"
+      onClick={centerMap}
+    />
+  );
 }
-
 // Component: RealtimeLocation
 function RealtimeLocation() {
   const [customIcon, setCustomIcon] = useState<L.Icon | null>(null);
   const [location, setLocation] = useState<[number, number] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
   // โหลด icon จาก leaflet (client only)
   useEffect(() => {
     import("leaflet").then(L => {
@@ -47,6 +44,9 @@ function RealtimeLocation() {
           iconSize: [25, 41],
           iconAnchor: [12, 41],
           popupAnchor: [0, -41],
+          shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+          shadowSize: [41, 41],
+          shadowAnchor: [12, 41],
         })
       );
     });
@@ -86,14 +86,21 @@ function RealtimeLocation() {
   if (!location) return <p>Loading location...</p>;
 
   return (
-    <MapContainer style={{ height: "85vh", width: "100%" }} center={location} zoom={13} scrollWheelZoom={true}>
+    <MapContainer style={{ height: "85vh", width: "100%" }} center={location} zoom={14} scrollWheelZoom={true}>
+      <CenterButton location={location} />
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       {customIcon && (
-        <Marker position={location} icon={customIcon}>
-          <Popup>คุณอยู่ตรงนี้</Popup>
+        <Marker 
+         position={location} icon={customIcon}        
+        >
+        <Tooltip 
+        className='bg-white text-black font-bold border-2 border-blue-500 rounded'
+        direction="top" offset={[0, -15]} opacity={1} permanent>
+         คุณอยู่ที่นี่
+        </Tooltip>
         </Marker>
       )}
-      <MapUpdater location={location} />
+      
     </MapContainer>
   );
 }
